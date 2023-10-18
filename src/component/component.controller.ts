@@ -3,8 +3,6 @@ import { Response } from 'express';
 import { AwsService } from 'src/aws.service';
 import { helloWorld } from './hello-world';
 
-const s3BucketName = 'headless-ui-poc';
-
 @Controller('component')
 export class ComponentController {
   constructor(private awsService: AwsService) {}
@@ -14,28 +12,17 @@ export class ComponentController {
   async getComponent(@Res() res: Response) {
     const s3ObjectKey = 'headless-ui';
 
-    await this.getOtSetComponentToS3(
-      helloWorld(),
-      this.s3,
-      s3BucketName,
-      s3ObjectKey,
-      res,
-    );
+    await this.getOtSetComponentToS3(helloWorld(), this.s3, s3ObjectKey, res);
   }
 
   private async getOtSetComponentToS3(
     component,
     s3,
-    s3BucketName: string,
     s3ObjectKey: string,
     res: Response<any, Record<string, any>>,
   ) {
     try {
-      const componentBuffer = await this.getComponentFromS3(
-        s3,
-        s3BucketName,
-        s3ObjectKey,
-      );
+      const componentBuffer = await this.getComponentFromS3(s3, s3ObjectKey);
 
       console.log('got object from s3');
 
@@ -46,12 +33,7 @@ export class ComponentController {
 
       console.log('not found in s3');
 
-      await this.storeComponentToS3(
-        s3,
-        s3BucketName,
-        s3ObjectKey,
-        componentBuffer,
-      );
+      await this.storeComponentToS3(s3, s3ObjectKey, componentBuffer);
 
       res.send(componentHtml);
     }
@@ -59,13 +41,12 @@ export class ComponentController {
 
   private async storeComponentToS3(
     s3,
-    s3BucketName: string,
     s3ObjectKey: string,
     componentBuffer: Buffer,
   ) {
     await s3
       .upload({
-        Bucket: s3BucketName,
+        Bucket: process.env.AWS_BUCKET_NAME,
         Key: s3ObjectKey,
         Body: componentBuffer,
         ContentType: 'text/html',
@@ -73,13 +54,9 @@ export class ComponentController {
       .promise();
   }
 
-  private async getComponentFromS3(
-    s3,
-    s3BucketName: string,
-    s3ObjectKey: string,
-  ) {
+  private async getComponentFromS3(s3, s3ObjectKey: string) {
     const s3Object = await s3
-      .getObject({ Bucket: s3BucketName, Key: s3ObjectKey })
+      .getObject({ Bucket: process.env.AWS_BUCKET_NAME, Key: s3ObjectKey })
       .promise();
     const componentBuffer = s3Object.Body as Buffer;
     return componentBuffer;
